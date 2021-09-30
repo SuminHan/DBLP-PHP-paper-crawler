@@ -193,8 +193,15 @@ $(document).ready(function() {
 				} 
 			],
 			order: [[ 1, "desc" ], [ 0, 'asc']],
-		} ).columns.adjust().draw();
+		} );
+		table.columns.adjust().draw();
 		//var data = table.buttons.exportData();
+		$('#example_filter input').unbind();
+		$('#example_filter input').bind('keyup', function(e) {
+			if(e.keyCode == 13) {
+				table.search(this.value).draw();
+			}
+			});
 		
 
 		$('div#checkboxes input[type=checkbox]').change(function(){
