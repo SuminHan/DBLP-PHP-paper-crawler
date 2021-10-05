@@ -70,10 +70,7 @@ function HtmlEncode(s)
 
 $(document).ready(function() {
 	var data = null;
-	$.get('/dblp/summary_papers.json', function(original_data){
-		data = original_data;
-		console.log(data);
-		
+	$.get('/dblp/conf_year_value_counts.json', function(data){
 		var conf_list = {};
 		var year_list = {};
 		var conf_count = {};
@@ -82,23 +79,20 @@ $(document).ready(function() {
 			var venue = item['venue'];
 			var year = Number(item['year']);
 			var key = venue + year;
-			if (!conf_count.hasOwnProperty(key)){
-				conf_count[key] = 0;
-			}
-			conf_count[key] += 1;
+			conf_count[key] = item['count'];
 
 			if (!conf_list.hasOwnProperty(item['venue'])){
 				conf_list[item['venue']] = 0;
 			}
-			conf_list[item['venue']] += 1;
+			conf_list[item['venue']] += item['count'];
 
 			if (!year_list.hasOwnProperty(item['year'])){
 				year_list[year] = 0;
 			}
-			year_list[year] += 1;
+			year_list[year] += item['count'];
 		}
 		
-		var stattext = '<b>CONF           ';
+		var stattext = '<b>CONF         ';
 		for (y in year_list){
 			stattext += '\t'+y;
 		}
@@ -144,41 +138,19 @@ $(document).ready(function() {
 
 		$('#myfilter #from_year option:first').attr('selected', 'selected');
 		$('#myfilter #until_year option:last').attr('selected', 'selected');
+		$('#myfilter').append('<button id="load_btn">Load Data</button>');
 
-
-		function filter_condition(){
-			var selected_conf = [];
-			$('div#checkboxes input[type=checkbox]').each(function() {
-			   if ($(this).is(":checked")) {
-				   selected_conf.push($(this).attr('name'));
-			   }
-			});
-			var from_year = $('#from_year option:selected').text();
-			var until_year = $('#until_year option:selected').text();
-			var new_list = []
-			for (var i in original_data){
-				item = original_data[i];
-				if (selected_conf.includes(item['venue']) 
-						& from_year <= Number(item['year']) 
-						& Number(item['year']) <= until_year){
-					new_list.push(item);
-				}
-			}
-			return new_list;
-		};
-
-
-		
-		var table = $('#example').DataTable( {
+		var mytable = $('#example').DataTable( {
 			/*ajax: {
 				url: '/summary_papers.json',
 				dataSrc: ''
 			},*/
+			destroy: true,
 			dom: 'Blfrtip',
 			buttons: [
 				'copy', 'csv', 'excel', 'pdf', 
 			],
-			data: data,
+			data: {},
 			columns: [
 				{ data: 'venue' },
 				{ data: 'year' },
@@ -194,37 +166,46 @@ $(document).ready(function() {
 			],
 			order: [[ 1, "desc" ], [ 0, 'asc']],
 		} );
-		table.columns.adjust().draw();
-		//var data = table.buttons.exportData();
-		$('#example_filter input').unbind();
-		$('#example_filter input').bind('keyup', function(e) {
-			if(e.keyCode == 13) {
-				table.search(this.value).draw();
-			}
+		mytable.columns.adjust().draw();
+
+		$('#load_btn').click(function(){
+			mytable.clear().draw();
+
+			var selected_conf = [];
+			$('div#checkboxes input[type=checkbox]').each(function() {
+			   if ($(this).is(":checked")) {
+				   selected_conf.push($(this).attr('name'));
+			   }
 			});
-		
+			var from_year = $('#from_year option:selected').text();
+			var until_year = $('#until_year option:selected').text();
 
-		$('div#checkboxes input[type=checkbox]').change(function(){
-			data = filter_condition();
-			table.clear().draw();
-			table.rows.add(data).draw();
-			console.log('added');
-		});
-		$('#from_year').change(function(){
-			data = filter_condition();
-			table.clear().draw();
-			table.rows.add(data).draw();
-			console.log('added');
-		});
-		$('#until_year').change(function(){
-			data = filter_condition();
-			table.clear().draw();
-			table.rows.add(data).draw();
-			console.log('added');
-		});
+			console.log(selected_conf, from_year, until_year);
 
+			$.ajax({
+				url: 'http://crystal.kaist.ac.kr:15111/papers',
+				type: 'post',
+				accept: 'application/json',
+				contentType: "application/json; charset=utf-8",
+				data: JSON.stringify({'venue': selected_conf,
+									  'from_year': from_year,
+									  'until_year': until_year}),
+				dataType: 'json',
+				success: function(data){
+					//var data = table.buttons.exportData();
+					$('#example_filter input').unbind();
+					$('#example_filter input').bind('keyup', function(e) {
+						if(e.keyCode == 13) {
+							mytable.search(this.value).draw();
+						}
+						});
+					mytable.rows.add(data).draw();
+					mytable.columns.adjust().draw();
+				},
+			});
+
+		});
 	});
-
 
 
 });
